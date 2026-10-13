@@ -3,11 +3,11 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>우리끼리 골프대회</title>
+<title>우리끼리 골프챌린지</title>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="우리끼리">
+<meta name="apple-mobile-web-app-title" content="골프챌린지">
 <meta name="theme-color" content="#14532d">
 <style>
 :root{--bg:#f6f4ee;--card:#fff;--sand:#ece5d6;--turf:#14532d;--turf-mid:#2a7a51;
@@ -144,6 +144,7 @@ tr.gold td:first-child{color:var(--turf)}
 <div id="app"></div>
 <script>
 "use strict";
+var APP_NAME="우리끼리 골프챌린지", APP_VER="1.0";
 var DKEY="woorigolf.data", LKEY="woorigolf.local";
 var DEFAULT_CLOUD="https://script.google.com/macros/s/AKfycbyJRHGc_25w-Jg8V-PGaRF19quBMTnazVxvqb2LzD__FkLao57zogtOjgn8gtarJv2P3g/exec";
 var S=null,L=null,view={name:"home"},sheet=null,tTimer=null,scan=null,busy=false;
@@ -173,8 +174,13 @@ function save(stamp){
  try{localStorage.setItem(DKEY,JSON.stringify(S));localStorage.setItem(LKEY,JSON.stringify(L))}
  catch(e){toast("저장하지 못했습니다. 저장 공간을 확인해 주세요.")}
 }
-function toast(m){var el=document.createElement("div");el.className="toast";el.textContent=m;
- document.body.appendChild(el);clearTimeout(tTimer);tTimer=setTimeout(function(){el.remove()},3200)}
+var tEl=null;
+function toast(m){
+ if(tEl){tEl.remove();tEl=null}
+ clearTimeout(tTimer);
+ var el=document.createElement("div");el.className="toast";el.textContent=m;
+ document.body.appendChild(el);tEl=el;
+ tTimer=setTimeout(function(){if(tEl===el){el.remove();tEl=null}},3200)}
 var askCb=null;
 function ask(msg,yes,label){
  askCb=yes;
@@ -515,7 +521,7 @@ function render(){
  if(view.name==="newround"||view.name==="edit")teamPreview()}
 
 function scrStart(){
- return '<div class="screen"><div class="bar"><h1>우리끼리 골프대회</h1></div><div class="body">'+
+ return '<div class="screen"><div class="bar"><h1>우리끼리 골프챌린지</h1></div><div class="body">'+
  '<div class="card"><h2>이미 모임이 있으신가요</h2>'+
  '<p class="note">경기위원장이 올린 기록을 받아오면 모임이 그대로 들어옵니다.</p>'+
  '<div style="height:10px"></div><button class="btn sm" onclick="go(\'data\')">설정 열기</button>'+
@@ -548,7 +554,8 @@ function scrHome(){
   '<button onclick="pullCloud()">받기</button></div>':'')+
  '<div class="hero"><div class="crest">\u26f3</div><div style="min-width:0">'+
  '<div class="hname">'+esc(S.room.name)+'</div>'+
- '<div class="hsub">회원 '+S.members.length+'명 · 라운드 '+S.rounds.length+'회 · '+(host?"경기위원장":"회원")+'</div>'+
+ '<div class="hsub">회원 '+S.members.length+'명 · 라운드 '+S.rounds.length+'회 · '+(host?"경기위원장":"회원")+
+ ' · '+APP_NAME+' v'+APP_VER+'</div>'+
  '</div></div>'+
  '<div class="bar"><h1 style="font-size:15px;color:var(--muted);font-weight:550">&nbsp;</h1>'+
  '<button class="chip" onclick="go(\'year\')">연간 집계</button>'+
@@ -1228,6 +1235,10 @@ function scrData(){
  var host=L.mode==="host";
  return '<div class="screen"><div class="bar"><button class="chip" onclick="go(\'home\')">뒤로</button><h1>설정</h1></div>'+
  '<div class="body">'+
+ (host?'<div class="card"><h2>모임 이름</h2>'+
+ '<p class="note">모임마다 이름을 다르게 두실 수 있습니다. 바꾸면 모든 화면에 바로 반영됩니다.</p>'+
+ '<label for="rmn">이름</label><input type="text" id="rmn" value="'+esc(S.room?S.room.name:"")+'">'+
+ '<div style="height:12px"></div><button class="btn sm quiet" onclick="saveRoomName()">모임 이름 저장</button></div>':'')+
  '<div class="card"><h2>모임 창구</h2>'+
  '<p class="note">모임 창구는 이미 연결되어 있습니다. 회원은 손대실 것이 없고 최신 기록 받기만 누르시면 됩니다.</p>'+
  '<label for="cu">창구 주소</label><input type="text" id="cu" value="'+esc(L.cloudUrl)+'" placeholder="https://script.google.com/macros/s/.../exec">'+
@@ -1253,6 +1264,9 @@ function scrData(){
  '<textarea id="rb" placeholder="공유해 두신 글 전체를 붙여 넣으세요"></textarea>'+
  '<div style="height:10px"></div><button class="btn sm quiet" onclick="restoreBackup()">모든 데이터 복원</button></div>'+
 
+ '<div class="card"><h2>프로그램</h2>'+
+ '<p class="note">'+APP_NAME+' v'+APP_VER+'</p>'+
+ '<p class="note">새 판이 올라오면 화면을 아래로 당겨 새로고침하시거나 창을 닫았다 다시 여시면 바뀝니다. 이 숫자가 달라졌으면 새 판으로 바뀐 것입니다.</p></div>'+
  '<div class="card"><h2>저장 상태</h2><p class="note">마지막 저장 '+fmt(L.lastSaved)+'</p>'+
  '<div style="height:10px"></div><div class="row2">'+
  '<button class="btn sm line" onclick="reseed()">경오 마스터즈 예시</button>'+
@@ -1264,6 +1278,11 @@ function saveCloud(){
  L.cloudUrl=u;var p=document.getElementById("cp");if(p)L.cloudPw=p.value;
  save(false);render();toast(u?"창구를 연결했습니다.":"창구 연결을 지웠습니다.")}
 var HOSTPW="8585";
+function saveRoomName(){
+ var v=document.getElementById("rmn").value.trim();
+ if(!v){toast("이름을 넣어 주세요.");return}
+ if(!S.room)S.room={id:uid(),createdAt:new Date().toISOString()};
+ S.room.name=v;save();render();toast("모임 이름을 바꿨습니다.")}
 function setRole(m){
  if(m!=="host"){L.mode="member";save(false);render();toast("회원 모드입니다.");return}
  if(L.mode==="host")return;
@@ -1287,7 +1306,7 @@ function wipe(){if(!confirm("이 폰의 기록을 지웁니다. 계속할까요?
 
 /* ---- 보관본 ---- */
 function backupText(){
- return "[우리끼리 골프대회 전체 데이터] "+(S.room?S.room.name:"")+" "+fmt(new Date().toISOString())+
+ return "[우리끼리 골프챌린지 전체 데이터] "+(S.room?S.room.name:"")+" "+fmt(new Date().toISOString())+
   "\n회원 "+S.members.length+"명 · 라운드 "+S.rounds.length+"회"+
   "\n이 글 전체를 복사해 설정 화면의 모든 데이터 복원에 붙여 넣으시면 그대로 되살아납니다."+
   "\n\nWGK:"+JSON.stringify(S)}
@@ -1313,11 +1332,11 @@ function showBackup(){
   '<textarea readonly id="bk">'+esc(backupText())+'</textarea>'}
 function restoreBackup(){
  var v=document.getElementById("rb").value,i=v.indexOf("WGK:");
- if(i<0){toast("우리끼리 골프대회 데이터를 찾지 못했습니다.");return}
+ if(i<0){toast("우리끼리 골프챌린지 데이터를 찾지 못했습니다.");return}
  var rest=v.slice(i+4),a=rest.indexOf("{"),b=rest.lastIndexOf("}");
  if(a<0||b<a){toast("내용을 읽지 못했습니다.");return}
  var o;try{o=JSON.parse(rest.slice(a,b+1))}catch(e){toast("내용을 읽지 못했습니다.");return}
- if(!o||!o.room){toast("우리끼리 골프대회 데이터가 아닙니다.");return}
+ if(!o||!o.room){toast("우리끼리 골프챌린지 데이터가 아닙니다.");return}
  if(!confirm("지금 기록을 붙여 넣으신 데이터로 모두 바꿉니다.\n회원 "+(o.members||[]).length+"명, 라운드 "+(o.rounds||[]).length+"회입니다.\n계속할까요?"))return;
  S=o;if(!S.members)S.members=[];if(!S.rounds)S.rounds=[];if(!S.hcpWindow)S.hcpWindow=5;
  save(false);go("home");toast("모든 데이터를 복원했습니다.")}
