@@ -948,32 +948,31 @@ function gameCard(r,g){
  if(g.type==="team"){
   var tr=teamResult(r,g);
   if(!tr)return '<div class="card"><h2>팀전</h2><div class="empty">두 팀 이상으로 나누고 기록이 들어오면 계산됩니다.</div></div>';
-  var ind=rankBy(tr.sides.reduce(function(a,s){
-   return a.concat(s.rows.map(function(x){
-    return{mid:x.mid,name:x.name,v:x.v,team:s.key,gross:x.gross,rh:x.rh}}))},[]),tr.asc);
+  var ind=rankBy(tr.sides.reduce(function(acc,sd){
+   return acc.concat(sd.rows.map(function(x){
+    return{mid:x.mid,name:x.name,v:x.v,team:sd.key,gross:x.gross,rh:x.rh}}))},[]),tr.asc);
   var irk={};ind.forEach(function(x){irk[x.mid]=x});
-  var box=tr.sides.map(function(s){
-   return '<div'+(s.rank===1?' style="outline:2px solid var(--turf)"':'')+'><div class="mt">'+
-    (s.rank===1?'\ud83c\udf1f ':'')+s.key+'팀'+(s.rank===1?(s.tie?" · 공동 1위":" · 우승"):" · "+s.rank+"위")+'</div>'+
-    s.rows.map(function(x){return '<div style="font-size:13px;margin-top:5px">'+
-     '<b>'+esc(x.name)+'</b> '+(Math.round(x.v*10)/10)+(x.mult>1?" ×"+x.mult:"")+
-     '<div class="mt">타수 '+(x.gross==null?"-":x.gross)+' · 핸디 '+x.rh+
-     ' · 개인 '+irk[x.mid].rank+'위</div></div>'}).join("")+
-    '<div style="margin-top:8px;font-weight:700">합계 '+s.total+'</div></div>'}).join("");
-  var w=tr.sides.filter(function(s){return s.rank===1});
-  var cnt=0;w.forEach(function(s){cnt+=s.rows.length});
-  var prize=g.prize?('<p class="note">상금 '+won(g.prize)+' · '+
-   w.map(function(s){return s.key+"팀"}).join(", ")+' · 1인당 '+won(Math.floor(g.prize/Math.max(1,cnt)))+'</p>'):"";
-  var itbl='<div class="scroll"><table><thead><tr><th>순위와 이름</th><th>팀</th>'+
-   '<th>타수</th><th>핸디</th><th>'+(tr.basis==="net"?"네트":"개선")+'</th></tr></thead><tbody>'+
-   ind.map(function(x){return '<tr'+(x.rank===1?' class="gold"':'')+'><td>'+
-    (x.rank===1?'<span class="star">\ud83c\udf1f</span> ':'')+(x.tie?"공동 ":"")+x.rank+'위 '+esc(x.name)+
-    (x.rank===1?' \ud83c\udf89':'')+'</td>'+
-    '<td>'+x.team+'팀</td><td>'+(x.gross==null?"-":x.gross)+'</td><td>'+x.rh+'</td>'+
-    '<td>'+(tr.basis==="net"?(Math.round(x.v*10)/10):sgn(x.v))+'</td></tr>'}).join("")+
-   '</tbody></table></div>';
-  return '<div class="card"><h2>팀전</h2><div class="teambox">'+box+'</div>'+
-   '<div style="height:12px"></div>'+itbl+
+  var body="";
+  tr.sides.forEach(function(sd){
+   body+='<tr'+(sd.rank===1?' class="gold"':'')+'>'+
+    '<td>'+(sd.rank===1?'<span class="star">\ud83c\udf1f</span> ':'')+
+    (sd.tie?"공동 ":"")+sd.rank+'위 '+sd.key+'팀</td>'+
+    '<td colspan="3" class="mt">'+sd.rows.length+'명</td>'+
+    '<td><b>'+sd.total+'</b></td></tr>';
+   sd.rows.slice().sort(function(x,y){return irk[x.mid].rank-irk[y.mid].rank}).forEach(function(x){
+    body+='<tr><td style="padding-left:16px">'+esc(x.name)+
+     '<span class="mt"> 개인 '+irk[x.mid].rank+'위</span></td>'+
+     '<td>'+(x.gross==null?"-":x.gross)+'</td><td>'+x.rh+'</td>'+
+     '<td>'+(tr.basis==="net"?(Math.round(x.v*10)/10):sgn(x.v))+'</td>'+
+     '<td>'+(x.mult>1?"\u00d7"+x.mult:"")+'</td></tr>'})});
+  var w=tr.sides.filter(function(sd){return sd.rank===1}),cnt=0;
+  w.forEach(function(sd){cnt+=sd.rows.length});
+  var prize=g.prize?('<p class="note">상금 '+won(g.prize)+' \u00b7 '+
+   w.map(function(sd){return sd.key+"팀"}).join(", ")+' \u00b7 1인당 '+
+   won(Math.floor(g.prize/Math.max(1,cnt)))+'</p>'):"";
+  return '<div class="card"><h2>팀전</h2>'+
+   '<div class="scroll"><table><thead><tr><th>순위와 이름</th><th>타수</th><th>핸디</th>'+
+   '<th>'+(tr.basis==="net"?"네트":"개선")+'</th><th>합계</th></tr></thead><tbody>'+body+'</tbody></table></div>'+
    '<p class="note">'+(tr.basis==="net"?"핸디 적용 타수를 더해 적은 팀이 이깁니다.":"전달 대비 개선 타수를 더해 많은 팀이 이깁니다.")+
    ' 인원이 맞지 않는 팀은 핸디가 중간인 분의 점수를 두 배로 칩니다.</p>'+prize+'</div>'}
  var rows=gameRows(r,g.type);
@@ -997,7 +996,9 @@ function gameCard(r,g){
   '</tbody></table><p class="note">'+G.desc+'</p>'+prize2+'</div>'}
 function scrResult(){
  var r=round(view.rid);if(!r)return scrHome();
- var cards=roundGames(r).map(function(g){return gameCard(r,g)}).join("");
+ var gl=roundGames(r).slice().sort(function(x,y){
+  return (x.type==="team"?0:1)-(y.type==="team"?0:1)});
+ var cards=gl.map(function(g){return gameCard(r,g)}).join("");
  var head='<tr><th>이름</th>'+r.pars.map(function(p,i){
   var hid=r.perio&&r.perio.indexOf(i+1)>=0,pv=parOf(r,i+1);
   return '<th'+(hid?' class="hid"':'')+'>'+(i+1)+'<br><span class="mt">'+(pv?pv:"·")+'</span></th>'}).join("")+'<th>합</th></tr>';
