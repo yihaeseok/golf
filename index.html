@@ -111,15 +111,17 @@ td.win{font-weight:700;color:var(--turf)}
 .gm input[type=number]{width:88px}
 .teambox{display:flex;gap:10px}
 .teambox>div{flex:1;background:var(--sand);border-radius:10px;padding:10px}
-.hero{display:flex;align-items:center;gap:13px;padding:18px 14px;
+.hero{display:flex;align-items:center;gap:10px;padding:14px 12px;
  background:var(--turf);color:var(--card)}
-.hero .crest{width:46px;height:46px;border-radius:50%;background:var(--card);color:var(--turf);
+.hero .crest{width:42px;height:42px;border-radius:50%;background:var(--card);color:var(--turf);
  display:flex;align-items:center;justify-content:center;font-size:24px;flex:none}
 .hero .hname{font-size:20px;font-weight:700;letter-spacing:-.02em;line-height:1.25;
- display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.hero .hrole{font-size:11.5px;font-weight:650;padding:3px 9px;border-radius:999px;
+ display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.hero .hrole{font-size:10px;font-weight:650;padding:2px 6px;border-radius:999px;white-space:nowrap;line-height:1.35;
  background:var(--card);color:var(--turf);flex:none}
-.hero .hsub{font-size:12.5px;opacity:.85;margin-top:2px}
+.hero .hsub{display:flex;align-items:center;gap:4px;min-width:0;font-size:clamp(10px,2.9vw,12px);opacity:.85;margin-top:3px;white-space:nowrap;letter-spacing:-.02em}
+.hero .hcounts{min-width:0;overflow:hidden;text-overflow:ellipsis}
+.hero .hversion{flex:none}
 .ribbon{background:var(--clay);color:#fff;padding:3px 9px;border-radius:999px;
  font-size:11.5px;font-weight:700;flex:none}
 .ribbon.done{background:var(--turf-mid)}
@@ -141,13 +143,21 @@ tr.gold td:first-child{color:var(--turf)}
 .parpick button.on{background:var(--turf);color:var(--card)}
 @media (prefers-reduced-motion:no-preference){
  .toast{animation:pop .18s ease-out}@keyframes pop{from{opacity:0;transform:translateX(-50%) translateY(6px)}}}
+
+/* 홈 메뉴 네 칸을 작은 휴대전화에서도 한 줄로 고정합니다. */
+.home-nav{gap:5px;padding:9px 10px}
+.home-nav .chip{flex:1;min-width:0;text-align:center;padding:8px 2px;
+ font-size:clamp(10px,2.8vw,13px);font-weight:600;letter-spacing:-.035em}
+.rules-intro{font-size:14px;line-height:1.6;margin:0}
+.rule-desc{font-size:14px;line-height:1.65;margin:0}
+.rule-desc+.rule-desc{margin-top:7px}
 </style>
 </head>
 <body>
 <div id="app"></div>
 <script>
 "use strict";
-var APP_NAME="우리끼리 골프챌린지", APP_VER="1.0";
+var APP_NAME="우리끼리 골프챌린지", APP_VER="1.0.2";
 var DKEY="woorigolf.data", LKEY="woorigolf.local";
 var DEFAULT_CLOUD="https://script.google.com/macros/s/AKfycbyJRHGc_25w-Jg8V-PGaRF19quBMTnazVxvqb2LzD__FkLao57zogtOjgn8gtarJv2P3g/exec";
 var S=null,L=null,view={name:"home"},sheet=null,tTimer=null,scan=null,busy=false;
@@ -516,6 +526,7 @@ function render(){
  else if(view.name==="data")app.innerHTML=scrData();
  else if(view.name==="year")app.innerHTML=scrYear();
  else if(view.name==="stats")app.innerHTML=scrStats();
+ else if(view.name==="rules")app.innerHTML=scrRules();
  else if(view.name==="past")app.innerHTML=scrPast();
  else if(view.name==="scan")app.innerHTML=scrScan();
  else app.innerHTML=scrHome();
@@ -558,12 +569,13 @@ function scrHome(){
  '<div class="hero"><div class="crest">\u26f3</div><div style="min-width:0">'+
  '<div class="hname">'+esc(S.room.name)+
  '<span class="hrole">'+(host?"경기위원장":"회원")+'</span></div>'+
- '<div class="hsub">회원 '+S.members.length+'명 · 라운드 '+S.rounds.length+'회</div>'+
- '<div class="hsub">'+APP_NAME+' v'+APP_VER+'</div>'+
+ '<div class="hsub"><span class="hcounts">회원 '+S.members.length+'명 · 라운드 '+S.rounds.length+'회 </span>'+
+ '<span class="hversion">· v'+APP_VER+'</span></div>'+
  '</div></div>'+
- '<div class="bar"><h1 style="font-size:15px;color:var(--muted);font-weight:550">&nbsp;</h1>'+
+ '<div class="bar home-nav" aria-label="주요 메뉴">'+
  '<button class="chip" onclick="go(\'year\')">연간 집계</button>'+
  '<button class="chip" onclick="go(\'stats\')">누적 기록</button>'+
+ '<button class="chip" onclick="go(\'rules\')">룰보기</button>'+
  '<button class="chip" onclick="go(\'data\')">설정</button></div>'+
  '<div class="body">'+
  '<div class="card"><h2>회원현황</h2><p class="note">'+
@@ -1232,6 +1244,43 @@ function scrStats(){
  return '<div class="screen"><div class="bar"><button class="chip" onclick="go(\'home\')">뒤로</button><h1>누적 기록</h1></div>'+
  '<div class="body">'+sel+
  cumTable(upto,head,"핸디순으로 늘어놓았습니다. 숫자는 모두 파 대비 오버 타수이며, 핸디는 최근 "+(S.hcpWindow||5)+"회 평균에서 자동으로 나옵니다. 마지막 라운드까지의 누적이 곧 전체 누적입니다.")+
+ '</div></div>'}
+
+/* ---- 룰보기: 현재 계산 로직을 기준으로 설명합니다. ---- */
+function scrRules(){
+ function card(title,summary,detail){
+  return '<div class="card"><h2>'+title+'</h2>'+
+   '<p class="rule-desc">'+summary+'</p>'+
+   (detail?'<p class="rule-desc" style="color:var(--muted)">'+detail+'</p>':'')+'</div>'}
+ return '<div class="screen"><div class="bar"><button class="chip" onclick="go(\'home\')">뒤로</button><h1>게임 룰보기</h1></div>'+ 
+ '<div class="body rules">'+
+ '<div class="card"><h2>공통 규칙</h2><p class="rules-intro">라운드마다 여러 종목을 동시에 선택할 수 있습니다. 순위는 해당 종목의 점수를 기준으로 결정하며, 동점은 공동 순위입니다. 1등이 여러 명이면 설정된 상금을 똑같이 나누되 1원 미만은 버립니다. 상금을 0원으로 정해도 순위는 계산합니다.</p>'+ 
+ '<p class="rule-desc" style="margin-top:8px;color:var(--muted)">각 종목의 ‘거꾸로’를 선택하면 승리 기준이 반대로 바뀝니다. 핸디는 다음 라운드를 위한 최근 기록을 이용해 계산하므로, 완료된 과거 경기의 적용 핸디는 그 경기 전 기록을 기준으로 합니다.</p></div>'+ 
+ card('1. '+GAMES.net.name,
+  '라운드의 전체 타수에서 경기 당일 적용 핸디를 뺀 네트 타수가 가장 적은 사람이 이깁니다.',
+  '첫 참가 경기에는 회원의 초기 핸디(기본값 0)가 적용됩니다. 이후에는 이전 한 경기의 파 대비 오버 타수, 기록이 쌓이면 최근 '+(S.hcpWindow||5)+'경기의 평균을 반올림하여 핸디로 적용합니다.')+
+ card('2. '+GAMES.gross.name,
+  '핸디를 빼지 않은 실제 총타수가 가장 적은 사람이 이깁니다.',
+  '전체 타수만 등록해도 계산할 수 있습니다.')+
+ card('3. '+GAMES.improve.name,
+  '직전에 참가한 경기와 비교하여 파 대비 타수를 더 많이 줄인 사람이 이깁니다.',
+  '예를 들어 이전 경기가 파보다 12타 많고 이번 경기가 7타 많다면 개선 점수는 +5타입니다. 이전 참가 기록이 없는 첫 경기는 계산 대상에서 제외됩니다.')+
+ card('4. '+GAMES.perio.name,
+  '숨은 홀을 이용해 그 경기의 신페리오 핸디를 별도로 계산한 뒤, 총타수에서 빼서 순위를 정합니다. 네트 타수가 적을수록 유리합니다.',
+  '18홀은 무작위로 12홀, 9홀은 6홀을 뽑습니다. 현재 프로그램은 숨은 홀 타수 합계에 1.5를 곱하고 전체 파를 뺀 값의 80%를 핸디로 계산합니다(소수 첫째 자리 반올림). 모든 홀의 타수가 있어야 계산됩니다.')+
+ card('5. '+GAMES.dapa.name,
+  '각 홀에서 파 또는 파보다 적은 타수를 기록한 홀의 개수가 가장 많은 사람이 이깁니다.',
+  '버디와 이글도 포함됩니다. 홀별 파와 타수 입력이 필요합니다.')+
+ card('6. '+GAMES.birdie.name,
+  '각 홀에서 버디 또는 버디보다 좋은 점수를 기록한 홀의 개수가 가장 많은 사람이 이깁니다.',
+  '해당 홀의 파보다 1타 이상 적게 친 경우를 셉니다. 홀별 파와 타수 입력이 필요합니다.')+
+ card('7. '+GAMES.onion.name,
+  '양파를 기록한 홀의 개수가 가장 많은 사람이 이깁니다.',
+  '현재 프로그램에서는 해당 홀 파의 두 배 이상 친 경우를 양파로 셉니다. 예를 들어 파4 홀에서 8타 이상이면 해당합니다. 홀별 파와 타수 입력이 필요합니다.')+
+ card('8. '+GAMES.team.name,
+  '2~4개 팀을 구성하고 선택한 개인전 종목의 점수를 팀별로 합산해 순위를 정합니다.',
+  '개인전의 승리 기준을 그대로 적용하며 팀전의 거꾸로 설정도 가능합니다. 팀 인원이 다르면 인원이 적은 팀에서 핸디가 중간에 가까운 선수들의 점수를 부족한 인원수만큼 중복 합산합니다. 핸디를 기준으로 자동 팀 배정할 수도 있습니다.')+
+ '<div class="card"><p class="note">이 설명은 골프 일반 경기규칙 전체가 아니라 이 프로그램에서 실제 사용하는 종목별 계산 규칙입니다. 경기위원장은 라운드를 만들 때 종목, 상금, 거꾸로 적용 여부를 선택합니다.</p></div>'+ 
  '</div></div>'}
 
 /* ---- 설정 ---- */
