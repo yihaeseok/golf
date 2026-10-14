@@ -144,11 +144,16 @@ tr.gold td:first-child{color:var(--turf)}
 @media (prefers-reduced-motion:no-preference){
  .toast{animation:pop .18s ease-out}@keyframes pop{from{opacity:0;transform:translateX(-50%) translateY(6px)}}}
 
+/* 라운딩 수정에서 선택하지 않은 회원의 점수 행은 표시하지 않습니다. */
+[data-edit-score-row][hidden],[data-edit-gross-row][hidden]{display:none!important}
 /* 홈 메뉴 네 칸을 작은 휴대전화에서도 한 줄로 고정합니다. */
 .home-nav{gap:5px;padding:9px 10px}
 .home-nav .chip{flex:1;min-width:0;text-align:center;padding:8px 2px;
  font-size:clamp(10px,2.8vw,13px);font-weight:600;letter-spacing:-.035em}
 .reverse-label{color:var(--ink);font-weight:650}
+/* 첫 화면의 라운드 요약은 종목 수가 많아도 최대 두 줄만 표시합니다. */
+.round-summary{display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+ line-clamp:2;max-height:3.1em;line-height:1.55;overflow:hidden;overflow-wrap:anywhere}
 .rules-intro{font-size:14px;line-height:1.6;margin:0}
 .rule-desc{font-size:14px;line-height:1.65;margin:0}
 .rule-desc+.rule-desc{margin-top:7px}
@@ -158,7 +163,7 @@ tr.gold td:first-child{color:var(--turf)}
 <div id="app"></div>
 <script>
 "use strict";
-var APP_NAME="우리끼리 골프챌린지", APP_VER="1.0.4";
+var APP_NAME="우리끼리 골프챌린지", APP_VER="1.0.6";
 var DKEY="woorigolf.data", LKEY="woorigolf.local";
 var DEFAULT_CLOUD="https://script.google.com/macros/s/AKfycbyJRHGc_25w-Jg8V-PGaRF19quBMTnazVxvqb2LzD__FkLao57zogtOjgn8gtarJv2P3g/exec";
 var S=null,L=null,view={name:"home"},sheet=null,tTimer=null,scan=null,busy=false;
@@ -412,7 +417,13 @@ function roundSummary(r){
   if(g.type==="team"){
    var tr=teamResult(r,g);if(!tr)return;
    var w=tr.sides.filter(function(s){return s.rank===1});
-   if(w.length)out.push("팀전 "+w.map(function(s){return s.key+"팀"}).join("·"));
+   if(w.length){
+    var grp=teamsOf(r);
+    out.push("팀전 "+w.map(function(s){
+     /* 우승팀에 배정된 참가자 전원을 함께 표시합니다. */
+     var names=(grp[s.key]||[]).map(function(mid){return mname(mid)});
+     return s.key+"팀"+(names.length?"("+names.join("·")+")":"")
+    }).join("·"))}
    return}
   var rows=gameRows(r,g.type,g.rev);if(!rows.length)return;
   var w2=rows.filter(function(x){return x.rank===1});
@@ -560,7 +571,7 @@ function scrHome(){
    '<span class="ribbon'+(pl?'':' done')+'">'+(pl?'예정':'결과')+'</span>'+
    '<div style="flex:1;min-width:0">'+
    '<div class="nm">'+roundNo(r)+'차 · '+esc(r.date)+(r.place?' · '+esc(r.place):'')+'</div>'+
-   '<div class="mt" style="white-space:normal">'+esc(sum)+'</div></div>'+
+   '<div class="mt round-summary" title="'+esc(sum)+'">'+esc(sum)+'</div></div>'+
    '<span class="mt">\u203a</span></li>'}).join("")
   :'<div class="empty">아직 라운드가 없습니다.</div>';
  var host=L.mode==="host";
@@ -645,13 +656,44 @@ function playerPicker(r){
    '<input type="checkbox" class="pck" value="'+m.id+'" onchange="teamPreview()" style="width:22px;height:22px;flex:none"'+(on?" checked":"")+'>'+
    '<span class="nm">'+esc(m.name)+'</span></label>'+
    '<span class="mt">'+curHcp(m.id)+'</span>'+
-   '<select class="tsel" data-mid="'+m.id+'" onchange="teamPreview()" style="width:84px;padding:7px 6px">'+
+   '<select class="tsel" data-mid="'+m.id+'" onchange="teamAssigned(this)" style="width:84px;padding:7px 6px">'+
    '<option value="">팀없음</option>'+TEAM_KEYS.map(function(k){
     return '<option value="'+k+'"'+(tm===k?" selected":"")+'>'+k+'팀</option>'}).join("")+
    '</select></div>'}).join("")}
+/* 참가자의 팀을 지정하면 별도의 종목 선택 없이 팀전이 활성화됩니다. */
+function teamAssigned(sel){
+ if(sel.value){
+  var item=sel.closest(".item"),pick=item&&item.querySelector(".pck");
+  if(pick)pick.checked=true;
+  var ck=document.querySelector('.gck[value="team"]');if(ck)ck.checked=true;
+  var count=document.getElementById("tcount"),used=TEAM_KEYS.indexOf(sel.value)+1;
+  if(count&&used>parseInt(count.value,10))count.value=String(Math.max(2,used));
+ }
+ teamPreview();
+}
+function syncEditParticipants(){
+ if(view.name!=="edit")return;
+ var ps=readPlayers().players;
+ [].slice.call(document.querySelectorAll("[data-edit-score-row]" )).forEach(function(x){
+  x.hidden=ps.indexOf(x.getAttribute("data-edit-score-row"))<0});
+ [].slice.call(document.querySelectorAll("[data-edit-gross-row]" )).forEach(function(x){
+  x.hidden=ps.indexOf(x.getAttribute("data-edit-gross-row"))<0});
+ syncEditGrossControls();
+}
+function syncEditGrossControls(midOnly){
+ if(view.name!=="edit")return;
+ var controls=midOnly?document.querySelectorAll('.eg[data-mid="'+midOnly+'"]'):document.querySelectorAll(".eg");
+ [].slice.call(controls).forEach(function(x){
+  var mid=x.getAttribute("data-mid"),cells=document.querySelectorAll('.escore[data-mid="'+mid+'"]');
+  var full=cells.length>0;
+  [].slice.call(cells).forEach(function(c){if(!c.value.trim())full=false});
+  x.disabled=full;
+ });
+}
 function teamPreview(){
  var box=document.getElementById("tprev");if(!box)return;
  var pk=readPlayers();
+ syncEditParticipants();
  if(!teamOn()){box.innerHTML='<p class="note">이 라운드는 팀 나누기를 하지 않습니다. 팀으로 겨루시려면 경기 종목에서 팀 나누기에 체크해 주십시오. 참가 '+pk.players.length+'명.</p>';return}
  var want=teamCountSel()||2;
  if(!pk.players.length){box.innerHTML='<p class="note">참가자를 고르시면 현황이 나옵니다.</p>';return}
@@ -794,7 +836,7 @@ function savePast(){
   games:[{type:"net",prize:0},{type:"gross",prize:0}],confirmed:true,createdAt:new Date().toISOString()});
  save();go("home");toast("등록했습니다.")}
 
-/* ---- 라운드 수정 ---- */
+/* ---- 라운드 수정: 화면에서 먼저 편집하고, 수정저장 한 번에 확정 ---- */
 function scrEdit(){
  var r=round(view.rid);if(!r)return scrHome();
  var sel={};roundGames(r).forEach(function(g){sel[g.type]=g});
@@ -803,106 +845,138 @@ function scrEdit(){
   return '<th'+(r.perio&&r.perio.indexOf(i+1)>=0?' class="hid"':'')+'>'+(i+1)+'</th>'}).join("")+'<th>합</th></tr>';
  var parRow='<tr><td style="min-width:72px">파</td>';
  for(var ph=1;ph<=r.holeCount;ph++)
-  parRow+='<td><input type="number" min="3" max="6" inputmode="numeric" value="'+(parOf(r,ph)||"")+
-   '" onchange="editPar('+ph+',this.value)"></td>';
+  parRow+='<td><input type="number" class="epar" data-hole="'+ph+'" min="3" max="6" inputmode="numeric" value="'+(parOf(r,ph)||"")+'"></td>';
  parRow+='<td>'+(parsReady(r)?parSum(r):"-")+'</td></tr>';
- var rowsHtml=r.players.map(function(mid){
-  var cells="";
+ var allMembers=S.members.filter(function(m){return r.players.indexOf(m.id)>=0}).concat(
+  S.members.filter(function(m){return r.players.indexOf(m.id)<0}));
+ var rowsHtml=allMembers.map(function(m){
+  var mid=m.id,cells="";
   for(var h=1;h<=r.holeCount;h++){var c=cell(r,mid,h);
-   cells+='<td><input type="number" min="1" inputmode="numeric" value="'+(c&&typeof c.s==="number"?c.s:"")+
-    '" onchange="editCell(\''+mid+'\','+h+',this.value)"></td>'}
+   cells+='<td><input type="number" class="escore" data-mid="'+mid+'" data-hole="'+h+'" min="1" inputmode="numeric" oninput="syncEditGrossControls(this.dataset.mid)" value="'+(c&&typeof c.s==="number"?c.s:"")+'"></td>'}
   var p=partialOf(r,mid);
-  return '<tr><td style="min-width:72px">'+esc(mname(mid))+'</td>'+cells+
+  return '<tr data-edit-score-row="'+mid+'"'+(r.players.indexOf(mid)<0?' hidden':'')+'><td style="min-width:72px">'+esc(m.name)+'</td>'+cells+
    '<td>'+(p.n?p.sum:"-")+'</td></tr>'}).join("");
- var gro=r.players.map(function(mid){
-  return '<div class="gm"><div class="nm">'+esc(mname(mid))+'</div>'+
+ var gro=allMembers.map(function(m){var mid=m.id;
+  return '<div class="gm" data-edit-gross-row="'+mid+'"'+(r.players.indexOf(mid)<0?' hidden':'')+'><div class="nm">'+esc(m.name)+'</div>'+
    '<input type="number" class="eg" data-mid="'+mid+'" min="1" inputmode="numeric" value="'+
    (typeof r.grossOnly[mid]==="number"?r.grossOnly[mid]:"")+'" placeholder="타수"'+
-   (hasHoles(r,mid)?" disabled":"")+'></div>'}).join("");
- var perioHtml=sel.perio?('<div class="card"><h2>신페리오 숨은 홀</h2>'+
-  '<p class="note">'+(r.perio&&r.perio.length?(r.perio.join(", ")+"번 홀"):"아직 뽑지 않았습니다.")+'</p>'+
-  '<div style="height:10px"></div><button class="btn sm quiet" onclick="rollPerio(\''+r.id+'\')">'+
-  (r.perio&&r.perio.length?"다시 뽑기":"뽑기")+'</button></div>'):"";
+   (hasHoles(r,mid)?' disabled':'')+'></div>'}).join("");
+ var showPerio=needPerio(roundGames(r));
+ var perioHtml='<div class="card"><h2>신페리오 숨은 홀</h2>'+
+  '<p class="note" id="eperioText">'+(r.perio&&r.perio.length?(r.perio.join(", ")+"번 홀"):"아직 뽑지 않았습니다.")+'</p>'+
+  '<input type="hidden" id="eperio" value="'+(r.perio?r.perio.join(","):"")+'">'+
+  '<p class="note">숨은 홀도 마지막 수정저장 때 확정됩니다. 신페리오를 선택하지 않았다면 이 항목은 적용되지 않습니다.</p>'+
+  '<div style="height:10px"></div><button class="btn sm quiet" onclick="rollPerioDraft(\''+r.id+'\')">'+
+  (showPerio&&r.perio&&r.perio.length?"다시 뽑기":"숨은 홀 뽑기")+'</button></div>';
  return '<div class="screen">'+
  '<div class="bar"><button class="chip" onclick="go(\'result\',{rid:\''+r.id+'\'})">뒤로</button><h1>라운드 수정</h1></div>'+
  '<div class="body">'+
+ '<p class="note" style="margin:0 0 10px">변경사항은 아래 수정저장을 누를 때 한꺼번에 저장됩니다. 뒤로 가면 저장되지 않은 내용은 사라집니다.</p>'+
  '<div class="card"><label for="ed">날짜</label><input type="date" id="ed" value="'+esc(r.date)+'">'+
- '<label for="ep">장소</label><input type="text" id="ep" value="'+esc(r.place||"")+'">'+
- '<div style="height:12px"></div><button class="btn sm quiet" onclick="saveMeta(\''+r.id+'\')">날짜와 장소 저장</button></div>'+
+ '<label for="ep">장소</label><input type="text" id="ep" value="'+esc(r.place||"")+'"></div>'+
  '<div class="card"><h2>경기 종목과 팀 나누기</h2>'+
- '<p class="note">팀으로 겨루실지 여부를 여기서 먼저 정하십시오. 체크하면 아래 참가자 목록에서 팀을 고르실 수 있습니다.</p>'+
- gameChecklist(sel)+
- '<div style="height:10px"></div><button class="btn sm quiet" onclick="saveGames(\''+r.id+'\')">경기 종목 저장</button></div>'+
+ '<p class="note">참가자에게 팀을 배정하면 팀전이 자동으로 선택됩니다. 팀 점수 기준은 핸디 적용으로 시작하며 필요할 때 바꿀 수 있습니다.</p>'+
+ gameChecklist(sel)+'</div>'+
  '<div class="card"><h2>참가 여부와 팀 배정</h2>'+
- '<p class="note">참가에 체크하고 오른쪽에서 팀을 고르시면 아래 현황이 바로 바뀝니다. 저장을 누르셔야 결과에 반영됩니다.</p>'+
+ '<p class="note">참가에 체크하고 팀을 지정하면 팀 나누기 현황이 바뀝니다. 이 변경도 마지막에 함께 저장됩니다.</p>'+
  '<ul class="list">'+chk+'</ul>'+
  '<h2 style="margin-top:14px">팀 나누기 현황</h2><div id="tprev"></div>'+
- '<div style="height:12px"></div><div class="row2">'+
- '<button class="btn sm" onclick="savePlayers(\''+r.id+'\')">참가와 팀 저장</button>'+
- '<button class="btn sm quiet" onclick="doAutoTeams(\''+r.id+'\')">핸디로 자동 배정</button></div></div>'+
- '<div class="card"><h2>홀별 타수</h2><p class="note">빈칸은 미입력입니다. 고치면 바로 저장됩니다.</p>'+
+ '<div style="height:12px"></div><button class="btn sm quiet" onclick="doAutoTeams(\''+r.id+'\')">핸디로 자동 배정</button></div>'+
+ '<div class="card"><h2>홀별 타수</h2><p class="note">빈칸은 미입력입니다. 홀별 파와 타수도 수정저장 때 함께 저장됩니다.</p>'+
  '<div class="scroll ed"><table class="hx"><thead>'+head+'</thead><tbody>'+parRow+rowsHtml+'</tbody></table></div>'+
  '<p class="note">맨 윗줄이 홀별 파입니다. 비어 있으면 그 홀은 버디와 양파 집계에서 빠집니다.</p>'+
- '<div style="height:10px"></div><button class="btn sm quiet" onclick="go(\'scan\',{rid:\''+r.id+'\'})">스코어카드 글로 채우기</button></div>'+
+ '<div style="height:10px"></div><button class="btn sm quiet" onclick="if(confirm(\'수정저장하지 않은 내용은 사라집니다. 스코어카드 입력 화면으로 이동할까요?\'))go(\'scan\',{rid:\''+r.id+'\'})">스코어카드 글로 채우기</button></div>'+
  '<div class="card"><h2>최종 타수만</h2>'+
- '<p class="note">홀별 타수가 모두 들어 있으면 그쪽이 쓰이고 이 칸은 잠깁니다.</p>'+gro+
- '<div style="height:10px"></div><button class="btn sm quiet" onclick="saveGross(\''+r.id+'\')">최종 타수 저장</button></div>'+
+ '<p class="note">홀별 타수가 모두 들어 있으면 그쪽이 쓰이고 이 칸은 잠깁니다.</p>'+gro+'</div>'+
  perioHtml+
  '<div class="card"><h2>삭제</h2><button class="btn sm line" onclick="delRound(\''+r.id+'\')">이 라운드 삭제</button></div>'+
- '</div></div>'}
-function editPar(h,v){var r=round(view.rid),n=parseInt(v,10);
- r.pars[h-1]=(isNaN(n)||n<3||n>6)?0:n;save();render()}
-function editCell(mid,h,v){
- var r=round(view.rid),n=parseInt(v,10);
- if(isNaN(n)||n<=0)setCell(r,mid,h,null);else setCell(r,mid,h,{s:n,st:"ok"});
- save()}
-function saveMeta(rid){var r=round(rid);
- r.date=document.getElementById("ed").value||r.date;
- r.place=document.getElementById("ep").value.trim();save();render();toast("저장했습니다.")}
-function savePlayers(rid){var r=round(rid),pk=readPlayers();
- if(!pk.players.length){toast("한 분 이상 남겨 주세요.");return}
- r.players=pk.players;r.teams=pk.teams;
- pk.players.forEach(function(mid){if(!r.groupOf[mid])r.groupOf[mid]=1});
- save();render();toast("참가와 팀을 저장했습니다.")}
-function saveGross(rid){var r=round(rid),n=0;
+ '</div><div class="foot"><button class="btn" onclick="saveRoundEdit(\''+r.id+'\')">수정저장</button></div></div>'}
+function saveRoundEdit(rid){
+ var r=round(rid);if(!r)return;
+ var pk=readPlayers(),games=readGames();
+ if(!pk.players.length){toast("참가자를 한 분 이상 선택해 주세요.");return}
+ if(!games.length){toast("경기 종목을 하나 이상 선택해 주세요.");return}
+ var ng=games.filter(function(g){return g.type==="team"})[0];
+ if(ng&&(ng.teamCount<2||ng.teamCount>4)){toast("팀 수는 2~4개로 정해 주세요.");return}
+ if(games.some(function(g){return g.prize<0})){toast("상금은 0원 이상으로 입력해 주세요.");return}
+ var pars=[],patches=[],gross={};
+ var valid=true;
+ [].slice.call(document.querySelectorAll(".epar")).forEach(function(x){
+  var v=x.value.trim(),n=Number(v);
+  if(v&&(!Number.isInteger(n)||n<3||n>6))valid=false;
+  pars[Number(x.getAttribute("data-hole"))-1]=v?n:0;
+ });
+ if(!valid){toast("홀별 파는 3~6 사이 정수로 입력해 주세요.");return}
+ [].slice.call(document.querySelectorAll(".escore")).forEach(function(x){
+  var mid=x.getAttribute("data-mid");if(pk.players.indexOf(mid)<0)return;
+  var v=x.value.trim(),n=Number(v);
+  if(v&&(!Number.isInteger(n)||n<=0))valid=false;
+  patches.push({mid:mid,h:Number(x.getAttribute("data-hole")),score:v?n:null});
+ });
+ if(!valid){toast("홀별 타수는 양의 정수로 입력해 주세요.");return}
  [].slice.call(document.querySelectorAll(".eg")).forEach(function(x){
-  var mid=x.getAttribute("data-mid"),v=parseInt(x.value,10);
-  if(isNaN(v)||v<=0)delete r.grossOnly[mid];else{r.grossOnly[mid]=v;n++}});
- save();render();toast(n+"명의 최종 타수를 저장했습니다.")}
-function saveGames(rid){var r=round(rid),games=readGames();
- if(!games.length){toast("게임을 하나 이상 고르세요.");return}
- r.games=games;
- var tg=games.filter(function(g){return g.type==="team"})[0];
- if(tg){
-  var used=Object.keys(teamsOf(r)).length;
-  if(!used||used>tg.teamCount)autoTeams(r,tg.teamCount);
+  var mid=x.getAttribute("data-mid");if(pk.players.indexOf(mid)<0)return;
+  var v=x.value.trim(),n=Number(v);
+  if(v&&(!Number.isInteger(n)||n<=0))valid=false;
+  gross[mid]=v?n:null;
+ });
+ if(!valid){toast("최종 타수는 양의 정수로 입력해 주세요.");return}
+ var draft=JSON.parse(JSON.stringify(r));
+ draft.date=document.getElementById("ed").value||r.date;
+ draft.place=document.getElementById("ep").value.trim();
+ /* 회원목록에서 이미 삭제한 사람의 옛 라운드 기록은 보존합니다. */
+ var removedMembers=r.players.filter(function(mid){return !member(mid)});
+ var oldTeamAssignments={};
+ removedMembers.forEach(function(mid){if(r.teams&&r.teams[mid])oldTeamAssignments[mid]=r.teams[mid]});
+ draft.games=games;draft.players=pk.players.concat(removedMembers);
+ draft.teams=Object.assign(oldTeamAssignments,pk.teams);draft.pars=pars;
+ pk.players.forEach(function(mid){if(!draft.groupOf[mid])draft.groupOf[mid]=1});
+ patches.forEach(function(x){
+  var old=cell(draft,x.mid,x.h);
+  if(old&&old.s===x.score)return;
+  setCell(draft,x.mid,x.h,x.score==null?null:{s:x.score,st:"ok"});
+ });
+ Object.keys(gross).forEach(function(mid){
+  if(gross[mid]==null)delete draft.grossOnly[mid];else draft.grossOnly[mid]=gross[mid]});
+ if(ng){
+  var assigned=Object.keys(teamsOf(draft));
+  /* 직접 지정한 C·D팀을 임의로 다시 배정하지 않고 팀 수를 맞춥니다. */
+  if(assigned.length){
+   var highest=Math.max.apply(null,assigned.map(function(k){return TEAM_KEYS.indexOf(k)+1}));
+   ng.teamCount=Math.max(ng.teamCount,highest);
+  }else autoTeams(draft,ng.teamCount);
  }
- if(needPerio(games)&&(!r.perio||!r.perio.length))drawPerio(r);
- save();render();toast("게임을 저장했습니다.")}
+ var ep=document.getElementById("eperio");
+ if(ep&&ep.value){draft.perio=ep.value.split(",").map(Number).filter(function(n){return n>=1&&n<=draft.holeCount})}
+ if(needPerio(games)&&(!draft.perio||!draft.perio.length))drawPerio(draft);
+ var pos=S.rounds.indexOf(r);if(pos<0)return;
+ S.rounds[pos]=draft;
+ save();go("result",{rid:rid});toast("라운딩 수정을 저장했습니다.");
+}
+/* 자동 배정은 화면에서만 반영하고, 수정저장에서 확정합니다. */
 function doAutoTeams(rid){
- var r=round(rid),sel=teamCountSel(),nn=sel||teamCountOf(r);
+ var r=round(rid),ps=readPlayers().players;
+ if(!r||!ps.length){toast("먼저 참가자를 선택해 주세요.");return}
+ var sel=teamCountSel(),nn=sel||teamCountOf(r);
  if(nn<2)nn=2;if(nn>4)nn=4;
- var ps=readPlayers().players;
- if(ps.length)r.players=ps;
- if(!r.games)r.games=[];
- var has=false;
- r.games.forEach(function(g){if(g.type==="team"){g.teamCount=nn;has=true}});
- if(!has)r.games.push({type:"team",prize:0,basis:"net",teamCount:nn});
- autoTeams(r,nn);save();render();
- var g2=teamsOf(r),msg=TEAM_KEYS.filter(function(k){return g2[k]}).map(function(k){
-  var t=0;g2[k].forEach(function(mid){t+=curHcp(mid)});return k+"팀 "+g2[k].length+"명 합"+t}).join(" · ");
- toast(nn+"팀으로 나눴습니다. "+msg)}
-function editTeams(rid){var r=round(rid),tn=teamCountOf(r);
- var txt=r.players.map(function(mid,i){return (i+1)+". "+mname(mid)+" ("+((r.teams&&r.teams[mid])||"-")+")"}).join("\n");
- var v=prompt("각 사람의 팀을 순서대로 적어 주세요. A부터 "+TEAM_KEYS[tn-1]+"까지이며, 쉼표나 공백으로 나누셔도 됩니다.\n\n"+txt,
-  r.players.map(function(mid){return (r.teams&&r.teams[mid])||"A"}).join(","));
- if(v===null)return;
- var arr=v.toUpperCase().replace(/[^A-D]/g,"").split("");
- if(arr.length!==r.players.length){toast("인원 수와 맞지 않습니다. "+arr.length+"개를 읽었습니다.");return}
- r.teams={};r.players.forEach(function(mid,i){r.teams[mid]=arr[i]});
- save();render();toast("팀을 저장했습니다.")}
-function rollPerio(rid){var r=round(rid);drawPerio(r);save();render();
- toast("숨은 홀 "+r.perio.join(", ")+"번을 뽑았습니다.")}
+ var temp={players:ps,teams:{}};
+ autoTeams(temp,nn);
+ [].slice.call(document.querySelectorAll(".tsel")).forEach(function(x){
+  var mid=x.getAttribute("data-mid");if(ps.indexOf(mid)>=0)x.value=temp.teams[mid]||""});
+ var ck=document.querySelector('.gck[value="team"]');if(ck)ck.checked=true;
+ var ct=document.getElementById("tcount");if(ct)ct.value=String(nn);
+ teamPreview();
+ var group=teamsOf(temp),msg=TEAM_KEYS.filter(function(k){return group[k]}).map(function(k){
+  var t=0;group[k].forEach(function(mid){t+=curHcp(mid)});return k+"팀 "+group[k].length+"명 합"+t}).join(" · ");
+ toast(nn+"팀으로 임시 배정했습니다. 수정저장을 눌러 확정해 주세요. "+msg);
+}
+function rollPerioDraft(rid){
+ var r=round(rid),el=document.getElementById("eperio");if(!r||!el)return;
+ var tmp={holeCount:r.holeCount};drawPerio(tmp);
+ el.value=tmp.perio.join(",");
+ var desc=document.getElementById("eperioText");if(desc)desc.textContent=tmp.perio.join(", ")+"번 홀";
+ toast("숨은 홀을 임시로 뽑았습니다. 수정저장 후 반영됩니다.");
+}
 function delRound(rid){var r=round(rid);
  if(!confirm(r.date+" 라운드를 삭제합니다. 되돌릴 수 없습니다. 계속할까요?"))return;
  S.rounds=S.rounds.filter(function(x){return x.id!==rid});save();go("home");toast("삭제했습니다.")}
