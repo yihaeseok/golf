@@ -148,6 +148,7 @@ tr.gold td:first-child{color:var(--turf)}
 .home-nav{gap:5px;padding:9px 10px}
 .home-nav .chip{flex:1;min-width:0;text-align:center;padding:8px 2px;
  font-size:clamp(10px,2.8vw,13px);font-weight:600;letter-spacing:-.035em}
+.reverse-label{color:var(--ink);font-weight:650}
 .rules-intro{font-size:14px;line-height:1.6;margin:0}
 .rule-desc{font-size:14px;line-height:1.65;margin:0}
 .rule-desc+.rule-desc{margin-top:7px}
@@ -157,7 +158,7 @@ tr.gold td:first-child{color:var(--turf)}
 <div id="app"></div>
 <script>
 "use strict";
-var APP_NAME="우리끼리 골프챌린지", APP_VER="1.0.2";
+var APP_NAME="우리끼리 골프챌린지", APP_VER="1.0.4";
 var DKEY="woorigolf.data", LKEY="woorigolf.local";
 var DEFAULT_CLOUD="https://script.google.com/macros/s/AKfycbyJRHGc_25w-Jg8V-PGaRF19quBMTnazVxvqb2LzD__FkLao57zogtOjgn8gtarJv2P3g/exec";
 var S=null,L=null,view={name:"home"},sheet=null,tTimer=null,scan=null,busy=false;
@@ -688,7 +689,7 @@ function gameChecklist(sel){
    (on?" checked":"")+'><div style="flex:1;min-width:0"><div class="nm">'+
    (t==="team"?"팀 나누기":g.name)+'</div>'+
    '<div class="mt">'+g.desc+'</div>'+
-   (t==="team"?'':'<label class="mt" style="display:inline-flex;align-items:center;gap:6px;margin-top:5px">'+
+   (t==="team"?'':'<label class="mt reverse-label" style="display:inline-flex;align-items:center;gap:6px;margin-top:5px">'+
     '<input type="checkbox" class="grv" style="width:18px;height:18px;flex:none"'+(on&&on.rev?" checked":"")+'>'+
     '거꾸로 ('+(GAMES[t].asc?"많을수록":"적을수록")+' 우승)</label>')+
    '</div>'+
@@ -696,7 +697,7 @@ function gameChecklist(sel){
    (t==="team"?'<div class="gm" style="padding-left:30px"><div style="flex:1;min-width:0">'+
     '<div class="nm">팀 점수 기준</div>'+
     '<div class="mt">개인전 종목 하나를 골라 그 점수를 팀별로 더합니다</div>'+
-    '<label class="mt" style="display:inline-flex;align-items:center;gap:6px;margin-top:5px">'+
+    '<label class="mt reverse-label" style="display:inline-flex;align-items:center;gap:6px;margin-top:5px">'+
     '<input type="checkbox" id="trev" style="width:18px;height:18px;flex:none"'+(on&&on.rev?" checked":"")+'>'+
     '거꾸로</label></div>'+
     '<select id="tbasis" style="width:120px">'+GAME_ORDER.filter(function(k){return k!=="team"}).map(function(k){
@@ -1020,7 +1021,7 @@ function gameCard(r,g){
   var prize=g.prize?('<p class="note">상금 '+won(g.prize)+' \u00b7 '+
    w.map(function(sd){return sd.key+"팀"}).join(", ")+' \u00b7 1인당 '+
    won(Math.floor(g.prize/Math.max(1,cnt)))+'</p>'):"";
-  return '<div class="card"><h2>팀전 <span class="mt">'+basisName(tr.basis)+(g.rev?' 거꾸로':'')+'</span></h2>'+
+  return '<div class="card"><h2>팀전 <span class="mt">'+basisName(tr.basis)+(g.rev?' <span class="reverse-label">거꾸로</span>':'')+'</span></h2>'+
    '<div class="scroll"><table><thead><tr><th>순위와 이름</th><th>타수</th><th>핸디</th>'+
    '<th>'+basisName(tr.basis)+'</th><th>합계</th></tr></thead><tbody>'+body+'</tbody></table></div>'+
    '<p class="note">'+basisName(tr.basis)+' 점수를 더해 '+(tr.asc?"적은":"많은")+' 팀이 이깁니다. '+
@@ -1034,7 +1035,7 @@ function gameCard(r,g){
  var showHcp=(g.type==="net"||g.type==="perio");
  var showGross=(g.type==="net"||g.type==="perio"||g.type==="improve");
  var LBL={gross:"타수",net:"네트",perio:"네트",improve:"개선",dapa:"개수",birdie:"개수",onion:"개수"};
- return '<div class="card"><h2>'+G.name+(g.rev?' <span class="mt">거꾸로</span>':'')+(g.type==="perio"&&r.perio?' <span class="mt">숨은 홀 '+r.perio.join(",")+'</span>':'')+'</h2>'+
+ return '<div class="card"><h2>'+G.name+(g.rev?' <span class="mt reverse-label">거꾸로</span>':'')+(g.type==="perio"&&r.perio?' <span class="mt">숨은 홀 '+r.perio.join(",")+'</span>':'')+'</h2>'+
   '<table><thead><tr><th>순위와 이름</th>'+(showGross?'<th>타수</th>':'')+(showHcp?'<th>핸디</th>':'')+
   '<th>'+(LBL[g.type]||"결과")+'</th></tr></thead><tbody>'+
   rows.map(function(x){return '<tr'+(x.rank===1?' class="gold"':'')+'><td>'+
@@ -1077,7 +1078,7 @@ function scrResult(){
  '<button class="btn sm quiet" onclick="go(\'play\',{rid:\''+r.id+'\',hole:1})">필드 스코어 입력</button>'+
  (host?'<button class="btn sm quiet" onclick="go(\'scan\',{rid:\''+r.id+'\'})">라운드 기록 올리기</button>':'')+
  '</div>'+(host?'<div style="height:8px"></div>'+
- '<button class="btn sm quiet" onclick="go(\'edit\',{rid:\''+r.id+'\'})">경기 룰 수정</button>':'')+'</div>'+
+ '<button class="btn sm quiet" onclick="go(\'edit\',{rid:\''+r.id+'\'})">라운딩 수정</button>':'')+'</div>'+
  '<div class="body">'+gHtml+cards+
  '<div class="card"><h2>홀별 기록</h2><div class="scroll"><table class="hx"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div></div>'+
  cumTable(r.id,no+"차까지의 누적","이 라운드를 마친 시점의 누적입니다. 핸디순으로 늘어놓았으며, 핸디는 다음 라운드에 적용될 값입니다.")+
@@ -1255,7 +1256,7 @@ function scrRules(){
  return '<div class="screen"><div class="bar"><button class="chip" onclick="go(\'home\')">뒤로</button><h1>게임 룰보기</h1></div>'+ 
  '<div class="body rules">'+
  '<div class="card"><h2>공통 규칙</h2><p class="rules-intro">라운드마다 여러 종목을 동시에 선택할 수 있습니다. 순위는 해당 종목의 점수를 기준으로 결정하며, 동점은 공동 순위입니다. 1등이 여러 명이면 설정된 상금을 똑같이 나누되 1원 미만은 버립니다. 상금을 0원으로 정해도 순위는 계산합니다.</p>'+ 
- '<p class="rule-desc" style="margin-top:8px;color:var(--muted)">각 종목의 ‘거꾸로’를 선택하면 승리 기준이 반대로 바뀝니다. 핸디는 다음 라운드를 위한 최근 기록을 이용해 계산하므로, 완료된 과거 경기의 적용 핸디는 그 경기 전 기록을 기준으로 합니다.</p></div>'+ 
+ '<p class="rule-desc" style="margin-top:8px;color:var(--muted)">핸디는 다음 라운드를 위한 최근 기록을 이용해 계산하므로, 완료된 과거 경기의 적용 핸디는 그 경기 전 기록을 기준으로 합니다.</p></div>'+ 
  card('1. '+GAMES.net.name,
   '라운드의 전체 타수에서 경기 당일 적용 핸디를 뺀 네트 타수가 가장 적은 사람이 이깁니다.',
   '첫 참가 경기에는 회원의 초기 핸디(기본값 0)가 적용됩니다. 이후에는 이전 한 경기의 파 대비 오버 타수, 기록이 쌓이면 최근 '+(S.hcpWindow||5)+'경기의 평균을 반올림하여 핸디로 적용합니다.')+
@@ -1280,6 +1281,9 @@ function scrRules(){
  card('8. '+GAMES.team.name,
   '2~4개 팀을 구성하고 선택한 개인전 종목의 점수를 팀별로 합산해 순위를 정합니다.',
   '개인전의 승리 기준을 그대로 적용하며 팀전의 거꾸로 설정도 가능합니다. 팀 인원이 다르면 인원이 적은 팀에서 핸디가 중간에 가까운 선수들의 점수를 부족한 인원수만큼 중복 합산합니다. 핸디를 기준으로 자동 팀 배정할 수도 있습니다.')+
+ card('9. 거꾸로',
+  '별도의 경기종목이 아니라 각 종목의 우승 순서를 반대로 정하는 선택 규칙입니다. 라운딩을 만들거나 수정할 때 해당 종목의 ‘거꾸로’를 체크하면 적용됩니다.',
+  '핸디 적용·스크래치·신페리오는 원래 낮은 점수가 우승하지만 거꾸로를 선택하면 높은 점수가 우승합니다. 개선상·다파상·버디킹·어니언킹은 반대로 낮은 점수가 우승합니다. 팀전에서는 선택한 개인전 종목의 팀별 합계를 반대 순서로 비교합니다. 실제 기록과 점수 계산은 그대로이고 순위만 바뀌며, 공동 순위 및 상금 분배 규칙은 동일합니다.')+
  '<div class="card"><p class="note">이 설명은 골프 일반 경기규칙 전체가 아니라 이 프로그램에서 실제 사용하는 종목별 계산 규칙입니다. 경기위원장은 라운드를 만들 때 종목, 상금, 거꾸로 적용 여부를 선택합니다.</p></div>'+ 
  '</div></div>'}
 
